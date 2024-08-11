@@ -69,6 +69,7 @@ export const AppointmentForm = ({
       default:
         status = "pending";
     }
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     try {
       if (type === "create" && patientId) {
@@ -101,6 +102,7 @@ export const AppointmentForm = ({
             cancellationReason: values.cancellationReason,
           },
           type,
+          timeZone,
         };
 
         const updatedAppointment = await updateAppointment(appointmentToUpdate);
@@ -125,7 +127,7 @@ export const AppointmentForm = ({
       buttonLabel = "Schedule Appointment";
       break;
     default:
-      buttonLabel = "Submit Apppointment";
+      buttonLabel = "Submit Appointment";
   }
 
   return (
