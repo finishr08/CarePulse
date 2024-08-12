@@ -26,15 +26,15 @@ declare interface RegisterUserParams extends CreateUserParams {
   emergencyContactName: string;
   emergencyContactNumber: string;
   primaryPhysician: string;
-  insuranceProvider?: string; // Make optional
-  insurancePolicyNumber?: string; // Make optional
-  allergies?: string; // Make optional
-  currentMedication?: string; // Make optional
-  familyMedicalHistory?: string; // Make optional
-  pastMedicalHistory?: string; // Make optional
-  identificationType?: string; // Make optional
-  identificationNumber?: string; // Make optional
-  identificationDocument?: FormData; // Make optional
+  insuranceProvider: string;
+  insurancePolicyNumber: string;
+  allergies: string | undefined;
+  currentMedication: string | undefined;
+  familyMedicalHistory: string | undefined;
+  pastMedicalHistory: string | undefined;
+  identificationType: string | undefined;
+  identificationNumber: string | undefined;
+  identificationDocument: FormData | undefined;
   privacyConsent: boolean;
 }
 
