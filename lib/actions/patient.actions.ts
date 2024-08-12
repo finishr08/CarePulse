@@ -14,10 +14,11 @@ import {
 } from "../appwrite.config";
 import { parseStringify } from "../utils";
 
+const VALID_GENDERS = ["male", "female", "other"];
+
 // CREATE APPWRITE USER
 export const createUser = async (user: CreateUserParams) => {
   try {
-    // Create new user -> https://appwrite.io/docs/references/1.5.x/server-nodejs/users#create
     const newuser = await users.create(
       ID.unique(),
       user.email,
@@ -25,18 +26,20 @@ export const createUser = async (user: CreateUserParams) => {
       undefined,
       user.name
     );
-
     return parseStringify(newuser);
-  } catch (error: any) {
-    // Check existing user
-    if (error && error?.code === 409) {
+  } catch (error) {
+    const err = error as any; // Type assertion
+    if (err?.code === 409) {
       const existingUser = await users.list([
         Query.equal("email", [user.email]),
       ]);
-
       return existingUser.users[0];
     }
-    console.error("An error occurred while creating a new user:", error);
+    console.error(
+      "An error occurred while creating a new user:",
+      err.message || err
+    );
+    throw new Error("Error creating user");
   }
 };
 
@@ -44,52 +47,75 @@ export const createUser = async (user: CreateUserParams) => {
 export const getUser = async (userId: string) => {
   try {
     const user = await users.get(userId);
-
     return parseStringify(user);
   } catch (error) {
+    const err = error as any; // Type assertion
     console.error(
       "An error occurred while retrieving the user details:",
-      error
+      err.message || err
     );
+    throw new Error("Error retrieving user");
   }
 };
 
 // REGISTER PATIENT
 export const registerPatient = async ({
   identificationDocument,
+  insuranceProvider,
+  insurancePolicyNumber,
+  gender,
   ...patient
 }: RegisterUserParams) => {
   try {
-    // Upload file ->  // https://appwrite.io/docs/references/cloud/client-web/storage#createFile
-    let file;
-    if (identificationDocument) {
-      const inputFile =
-        identificationDocument &&
-        InputFile.fromBlob(
-          identificationDocument?.get("blobFile") as Blob,
-          identificationDocument?.get("fileName") as string
-        );
-
-      file = await storage.createFile(BUCKET_ID!, ID.unique(), inputFile);
+    // Normalize and validate gender value
+    const normalizedGender = gender.toLowerCase();
+    if (!VALID_GENDERS.includes(normalizedGender)) {
+      throw new Error(
+        `Invalid gender value: ${gender}. Must be one of ${VALID_GENDERS.join(", ")}`
+      );
     }
 
-    // Create new patient document -> https://appwrite.io/docs/references/cloud/server-nodejs/databases#createDocument
+    let file;
+    if (identificationDocument) {
+      const blobFile = identificationDocument.get("blobFile") as Blob;
+      const fileName = identificationDocument.get("fileName") as string;
+
+      if (blobFile && fileName) {
+        const inputFile = InputFile.fromBlob(blobFile, fileName);
+        file = await storage.createFile(BUCKET_ID!, ID.unique(), inputFile);
+      }
+    }
+
+    // Prepare patient data
+    const patientData: Record<string, any> = {
+      identificationDocumentId: file?.$id || null,
+      identificationDocumentUrl: file?.$id
+        ? `${ENDPOINT}/storage/buckets/${BUCKET_ID}/files/${file.$id}/view?project=${PROJECT_ID}`
+        : null,
+      gender: normalizedGender, // Use normalized gender
+      ...patient,
+    };
+
+    // Add optional fields only if defined
+    if (insuranceProvider) {
+      patientData.insuranceProvider = insuranceProvider;
+    }
+    if (insurancePolicyNumber) {
+      patientData.insurancePolicyNumber = insurancePolicyNumber;
+    }
+
     const newPatient = await databases.createDocument(
       DATABASE_ID!,
       PATIENT_COLLECTION_ID!,
       ID.unique(),
-      {
-        identificationDocumentId: file?.$id ? file.$id : null,
-        identificationDocumentUrl: file?.$id
-          ? `${ENDPOINT}/storage/buckets/${BUCKET_ID}/files/${file.$id}/view??project=${PROJECT_ID}`
-          : null,
-        ...patient,
-      }
+      patientData
     );
 
     return parseStringify(newPatient);
   } catch (error) {
-    console.error("An error occurred while creating a new patient:", error);
+    const err = error as any; // Type assertion
+    console.error("An error occurred while creating a new patient:", err.message || err);
+    throw new Error("Error registering patient");
   }
 };
 
@@ -104,9 +130,11 @@ export const getPatient = async (userId: string) => {
 
     return parseStringify(patients.documents[0]);
   } catch (error) {
+    const err = error as any; // Type assertion
     console.error(
       "An error occurred while retrieving the patient details:",
-      error
+      err.message || err
     );
+    throw new Error("Error retrieving patient details");
   }
 };
