@@ -19,27 +19,48 @@ const VALID_GENDERS = ["male", "female", "other"];
 // CREATE APPWRITE USER
 export const createUser = async (user: CreateUserParams) => {
   try {
-    const newuser = await users.create(
+    // Check if a user with the same email already exists
+    const existingUsersByEmail = await users.list([
+      Query.equal("email", [user.email]),
+    ]);
+
+    if (existingUsersByEmail.users.length > 0) {
+      console.log(
+        "User already exists with this email:",
+        existingUsersByEmail.users[0]
+      );
+      return parseStringify(existingUsersByEmail.users[0]);
+    }
+
+    // Check if a user with the same phone already exists
+    const existingUsersByPhone = await users.list([
+      Query.equal("phone", [user.phone]),
+    ]);
+
+    if (existingUsersByPhone.users.length > 0) {
+      console.log(
+        "User already exists with this phone number:",
+        existingUsersByPhone.users[0]
+      );
+      return parseStringify(existingUsersByPhone.users[0]);
+    }
+
+    // Create new user if no existing user is found
+    const newUser = await users.create(
       ID.unique(),
       user.email,
-      user.phone,
-      undefined,
+      user.phone, // Ensure you include the password if required
       user.name
     );
-    return parseStringify(newuser);
+
+    return parseStringify(newUser);
   } catch (error) {
     const err = error as any; // Type assertion
-    if (err?.code === 409) {
-      const existingUser = await users.list([
-        Query.equal("email", [user.email]),
-      ]);
-      return existingUser.users[0];
-    }
     console.error(
       "An error occurred while creating a new user:",
       err.message || err
     );
-    throw new Error("Error creating user");
+    throw new Error(`Error creating user: ${err.message}`);
   }
 };
 
@@ -114,7 +135,10 @@ export const registerPatient = async ({
     return parseStringify(newPatient);
   } catch (error) {
     const err = error as any; // Type assertion
-    console.error("An error occurred while creating a new patient:", err.message || err);
+    console.error(
+      "An error occurred while creating a new patient:",
+      err.message || err
+    );
     throw new Error("Error registering patient");
   }
 };
